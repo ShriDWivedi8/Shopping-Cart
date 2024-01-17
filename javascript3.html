@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Shopping</title>
+    <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+
+<body onload="initialize()" class="container-fluid">
+    <header class="bg-danger p-2 text-white text-center">
+        <h1><span class="bi bi-cart3"></span>Shopping Cart</h1>
+    </header>
+    <section class="row mt-3">
+        <div class="col-3">
+            <div class="mb-3">
+                <label for="lstCategories" class="form-label">Select Category</label>
+                <select onchange="categoryChange()" id="lstCategories" class="form-select"></select>
+            </div>
+        </div>
+
+        <div class="col-7">
+            <div id="catalog" class="d-flex overflow-auto flex-wrap" style="height: 500px;"></div>
+        </div>
+
+        <div class="col-2">
+            <button onclick="showCart()" data-bs-target="#cart" data-bs-toggle="modal" class="btn btn-danger w-100">
+                <span class="bi bi-cart4"></span>[<span id="lblCount"></span>] Your Cart Items
+            </button>
+            <div class="modal fade" id="cart">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Your Cart Items</h3>
+                            <button data-bs-dismiss="modal" class="btn-close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th>Total</th>
+                                        <th>Preview</th>
+                                        <th>
+                                            <span class="bi bi-trash-fill-danger"></span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cartItemsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script src="../node_modules/jquery/dist/jquery.js"></script>
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script>
+        var cartItems = [];
+
+        function initialize() {
+            loadCategories();
+            loadProducts("http://fakestoreapi.com/products");
+            getCartItemsCount();
+        }
+
+        function loadCategories() {
+            fetch("http://fakestoreapi.com/products/categories")
+                .then(response => response.json())
+                .then(data => {
+                    data.unshift("all");
+                    var selectElement = document.getElementById("lstCategories");
+
+                    for (var category of data) {
+                        var option = document.createElement("option");
+                        option.text = category.toUpperCase();
+                        option.value = category;
+                        selectElement.appendChild(option);
+                    }
+                });
+        }
+
+        function loadProducts(url) {
+            document.getElementById("catalog").innerHTML = "";
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    for (var item of data) {
+                        var div = createProductCard(item);
+                        document.getElementById("catalog").appendChild(div);
+                    }
+                });
+        }
+
+        function createProductCard(item) {
+            var div = document.createElement("div");
+            div.className = "card m-2 p-2";
+            div.style.width = "200px";
+            div.innerHTML = `
+                <img src=${item.image} height="150" class="card-img-top">
+                <div class="card-header" style="height:180px">
+                    <p>${item.title}</p>
+                </div>
+                <div class="card-body">
+                    <h3>${item.price}</h3>
+                </div>
+                <div class="card-footer">
+                    <div class="input-group">
+                        <button class="btn btn-danger" onclick="addToCart(${item.id})"> 
+                            <span class="bi bi-cart4"></span>Add to Cart
+                        </button>
+                        <input type="number" min="1" value="1" id="quantity-${item.id}" class="form-control">
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function categoryChange() {
+            var category = document.getElementById("lstCategories").value;
+            var url = category === "all" ? "http://fakestoreapi.com/products" : `http://fakestoreapi.com/products/category/${category}`;
+            loadProducts(url);
+        }
+
+        function getCartItemsCount() {
+            document.getElementById("lblCount").innerHTML = cartItems.length;
+        }
+
+        function addToCart(id) {
+            fetch(`http://fakestoreapi.com/products/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    var quantity = document.getElementById(`quantity-${id}`).value;
+                    data.quantity = parseInt(quantity);
+                    cartItems.push(data);
+                    getCartItemsCount();
+                    alert(`${data.title}\nAdded to Cart`);
+                });
+        }
+
+        function showCart() {
+            var cartItemsBody = document.getElementById("cartItemsBody");
+            cartItemsBody.innerHTML = "";
+
+            for (var index in cartItems) {
+                var item = cartItems[index];
+                var tr = document.createElement("tr");
+                var tdTitle = document.createElement("td");
+                var tdPrice = document.createElement("td");
+                var tdQuantity = document.createElement("td");
+                var tdTotal = document.createElement("td");
+                var tdPhoto = document.createElement("td");
+                var tdRemove = document.createElement("td");
+
+                tdTitle.innerHTML = item.title;
+                tdPrice.innerHTML = item.price;
+                tdQuantity.innerHTML = item.quantity;
+                tdTotal.innerHTML = (item.price * item.quantity).toFixed(2);
+
+                var img = document.createElement("img");
+                img.width = "50";
+                img.height = "50";
+                img.src = item.image;
+
+                tdPhoto.appendChild(img);
+
+                var removeButton = document.createElement("button");
+                removeButton.className = "btn btn-outline-danger";
+                removeButton.innerHTML = '<span class="bi bi-trash2-fill"></span>';
+                removeButton.onclick = (function (i) {
+                    return function () {
+                        removeFromCart(i);
+                    };
+                })(index);
+
+                tdRemove.appendChild(removeButton);
+
+                tr.appendChild(tdTitle);
+                tr.appendChild(tdPrice);
+                tr.appendChild(tdQuantity);
+                tr.appendChild(tdTotal);
+                tr.appendChild(tdPhoto);
+                tr.appendChild(tdRemove);
+
+                cartItemsBody.appendChild(tr);
+            }
+        }
+
+        function removeFromCart(index) {
+            cartItems.splice(index, 1);
+            getCartItemsCount();
+            showCart(); 
+        }
+    </script>
+</body>
+
+</html>
